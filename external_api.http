@@ -1,0 +1,267 @@
+### ==========================================================================
+### SendAPI External API — HTTP Client Examples
+### ==========================================================================
+### Base URL: http://localhost:8000/api/v1
+### Auth: Bearer sk_live_...
+### ==========================================================================
+
+
+### ==========================================================================
+### 1. USERS
+### ==========================================================================
+
+### Create a user
+POST {{ base_url }}/users
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "external_user_id": "user_12345",
+  "email": "user@example.com",
+  "language": "en"
+}
+
+### List users (paginated)
+GET {{ base_url }}/users?page=1&per_page=20
+Authorization: Bearer {{ api_key }}
+
+### Get a single user
+GET {{ base_url }}/users/48
+Authorization: Bearer {{ api_key }}
+
+### Delete a user from the organization
+DELETE {{ base_url }}/users/48
+Authorization: Bearer {{ api_key }}
+
+### Generate a claim token (account linking URL)
+POST {{ base_url }}/users/48/claim-token
+Authorization: Bearer {{ api_key }}
+
+
+### ==========================================================================
+### 2. ACCOUNTS
+### ==========================================================================
+
+### List connected accounts for a user
+GET {{ base_url }}/users/48/accounts
+Authorization: Bearer {{ api_key }}
+
+### Connect a YouTube account (returns OAuth URL)
+POST {{ base_url }}/users/48/accounts/youtube/connect
+Authorization: Bearer {{ api_key }}
+
+### Connect a Telegram channel (requires bot to be added as admin first)
+POST {{ base_url }}/users/48/accounts/telegram/connect
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "channel_id": "@your_channel_username"
+}
+
+### Connect a TikTok account
+POST {{ base_url }}/users/48/accounts/tiktok/connect
+Authorization: Bearer {{ api_key }}
+
+### Connect an Instagram account
+POST {{ base_url }}/users/48/accounts/instagram/connect
+Authorization: Bearer {{ api_key }}
+
+### Disconnect an account
+DELETE {{ base_url }}/users/48/accounts/1
+Authorization: Bearer {{ api_key }}
+
+
+### ==========================================================================
+### 3. POSTS
+### ==========================================================================
+
+### Upload a media file directly to the server
+POST {{ base_url }}/upload/file
+Authorization: Bearer {{ api_key }}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="data"; filename="video.mp4"
+Content-Type: video/mp4
+
+< /path/to/video.mp4
+--boundary--
+
+### Create a post (URL-based media — worker downloads from URL)
+POST {{ base_url }}/users/48/posts
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "title": "My awesome video",
+  "description": "Check this out!",
+  "tags": ["tech", "tutorial"],
+  "platforms": ["youtube"],
+  "media_type": "video",
+  "media_source": "/tmp/sendapi/bf39ff5b-aea4-4058-889f-72754ee83ddf.mp4"
+}
+
+### Create a post (photo to multiple platforms)
+POST {{ base_url }}/users/48/posts
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "title": "Beautiful sunset",
+  "description": "Captured this evening",
+  "tags": ["photography", "nature"],
+  "platforms": ["instagram", "facebook", "telegram"],
+  "media_type": "photo",
+  "media_source": "https://your-cdn.com/sunset.jpg"
+}
+
+### Create a post with TikTok settings
+POST {{ base_url }}/users/48/posts
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "title": "Dance challenge",
+  "platforms": ["tiktok"],
+  "media_type": "video",
+  "media_source": "https://your-cdn.com/dance.mp4",
+  "platform_settings": {
+    "tiktok": {
+      "privacy_level": "PUBLIC_TO_EVERYONE",
+      "allow_comment": true,
+      "allow_duet": false,
+      "allow_stitch": false,
+      "branded_content": false,
+      "music_usage_confirmed": true
+    }
+  }
+}
+
+### Create a post to specific accounts only
+POST {{ base_url }}/users/48/posts
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "title": "Targeted post",
+  "platforms": ["youtube"],
+  "media_type": "video",
+  "media_source": "https://your-cdn.com/video.mp4",
+  "target_account_ids": [1, 2]
+}
+
+### List posts (paginated)
+GET {{ base_url }}/users/48/posts?page=1&per_page=20
+Authorization: Bearer {{ api_key }}
+
+### List posts filtered by status
+GET {{ base_url }}/users/48/posts?post_status=success
+Authorization: Bearer {{ api_key }}
+
+### List failed posts
+GET {{ base_url }}/users/48/posts?post_status=failed
+Authorization: Bearer {{ api_key }}
+
+### Get a single post
+GET {{ base_url }}/users/48/posts/1
+Authorization: Bearer {{ api_key }}
+
+
+### ==========================================================================
+### 4. WEBHOOKS
+### ==========================================================================
+
+### Register a webhook
+POST {{ base_url }}/webhooks
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "url": "https://your-app.com/webhooks/sendapi",
+  "events": ["post.completed", "post.failed"]
+}
+
+### Register a webhook for all events
+POST {{ base_url }}/webhooks
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "url": "https://your-app.com/webhooks/sendapi",
+  "events": ["post.completed", "post.failed", "post.processing", "account.disconnected"]
+}
+
+### List webhooks
+GET {{ base_url }}/webhooks
+Authorization: Bearer {{ api_key }}
+
+### Update a webhook (change URL)
+PATCH {{ base_url }}/webhooks/1
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "url": "https://new-url.com/webhooks/sendapi"
+}
+
+### Update a webhook (change events)
+PATCH {{ base_url }}/webhooks/1
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "events": ["post.completed"]
+}
+
+### Disable a webhook
+PATCH {{ base_url }}/webhooks/1
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "is_active": false
+}
+
+### Re-enable a webhook (resets failure counter)
+PATCH {{ base_url }}/webhooks/1
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "is_active": true
+}
+
+### Delete a webhook
+DELETE {{ base_url }}/webhooks/1
+Authorization: Bearer {{ api_key }}
+
+
+### ==========================================================================
+### 5. ORGANIZATION
+### ==========================================================================
+
+### Get organization info (quota, usage, rate limits)
+GET {{ base_url }}/org
+Authorization: Bearer {{ api_key }}
+
+### Create a new API key
+POST {{ base_url }}/org/api-keys
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "name": "Production"
+}
+
+### List API keys (prefix only, never full key)
+GET {{ base_url }}/org/api-keys
+Authorization: Bearer {{ api_key }}
+
+### Revoke an API key
+DELETE {{ base_url }}/org/api-keys/1
+Authorization: Bearer {{ api_key }}
+
+### Get branding assets (badge URL + landing URL)
+GET {{ base_url }}/org/branding
+Authorization: Bearer {{ api_key }}
