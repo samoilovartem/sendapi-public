@@ -34,7 +34,8 @@ curl -X POST https://api.sendapi.labslumen.com/api/v1/users \
   -d '{
     "external_user_id": "user_12345",
     "email": "user@example.com",
-    "language": "en"
+    "language": "en",
+    "plan": "partner_free"
   }'
 ```
 
@@ -47,6 +48,7 @@ curl -X POST https://api.sendapi.labslumen.com/api/v1/users \
   "email": "user@example.com",
   "language": "en",
   "is_claimed": false,
+  "plan_name": "partner_free",
   "created_at": "2026-04-05T10:00:00Z"
 }
 ```
@@ -170,9 +172,60 @@ When you exceed the limit, you'll receive a `403 Forbidden` response with a mess
 
 ---
 
+## Partner Plans
+
+Each user in your organization is assigned a partner plan that controls their usage limits. Plans are managed by SendAPI — your app picks which plan to assign each user.
+
+### List Available Plans
+
+```
+GET /plans
+```
+
+Returns all active partner plans with their limits:
+
+```json
+[
+  {
+    "name": "partner_free",
+    "display_name": "Partner Free",
+    "uploads_limit": 20,
+    "accounts_limit": 3,
+    "file_size_limit": 68157440,
+    "history_days": 30,
+    "priority": false,
+    "features": { "ai_generations_limit": 0, "twitter_posts_limit": -1 }
+  },
+  {
+    "name": "partner_pro",
+    "display_name": "Partner Pro",
+    "uploads_limit": 50,
+    "accounts_limit": 5,
+    "file_size_limit": 524288000,
+    "history_days": 365,
+    "priority": false,
+    "features": { "ai_generations_limit": 250, "twitter_posts_limit": 15 }
+  },
+  {
+    "name": "partner_business",
+    "display_name": "Partner Business",
+    "uploads_limit": 500,
+    "accounts_limit": 0,
+    "file_size_limit": 2147483648,
+    "history_days": 0,
+    "priority": true,
+    "features": { "ai_generations_limit": 1000, "twitter_posts_limit": 50 }
+  }
+]
+```
+
+Use the `name` field when creating or updating users. A value of `0` means unlimited.
+
+---
+
 ## Users
 
-Users represent your end-users within SendAPI. Each user has their own connected accounts and posts, isolated from other users.
+Users represent your end-users within SendAPI. Each user has their own connected accounts, posts, and partner plan, isolated from other users.
 
 ### Create User
 
@@ -180,15 +233,36 @@ Users represent your end-users within SendAPI. Each user has their own connected
 POST /users
 ```
 
-| Field              | Type   | Required | Description                                         |
-| ------------------ | ------ | -------- | --------------------------------------------------- |
-| `external_user_id` | string | Yes      | Your internal user ID (1-255 chars, unique per org) |
-| `email`            | string | No       | User's email address                                |
-| `language`         | string | No       | Language code (e.g., `"en"`, `"ru"`)                |
+| Field              | Type   | Required | Description                                                 |
+| ------------------ | ------ | -------- | ----------------------------------------------------------- |
+| `external_user_id` | string | Yes      | Your internal user ID (1-255 chars, unique per org)         |
+| `email`            | string | No       | User's email address                                        |
+| `language`         | string | No       | Language code (e.g., `"en"`, `"ru"`)                        |
+| `plan`             | string | No       | Partner plan name (defaults to `"partner_free"` if not set) |
 
 **Errors:**
 
+- `400 Bad Request` — invalid partner plan name
 - `409 Conflict` — `external_user_id` already exists in your organization
+
+### Update User Plan
+
+Change a user's partner plan tier. Usage counters are **not** reset on tier change — the new plan's limits apply to the already-consumed usage for the current billing period.
+
+```
+PATCH /users/{user_id}
+```
+
+| Field  | Type   | Required | Description           |
+| ------ | ------ | -------- | --------------------- |
+| `plan` | string | Yes      | New partner plan name |
+
+**Response:** returns the updated user object.
+
+**Errors:**
+
+- `400 Bad Request` — invalid partner plan name
+- `404 Not Found` — user does not exist in your organization
 
 ### List Users
 
@@ -200,7 +274,7 @@ Returns a paginated list:
 
 ```json
 {
-  "items": [{ "id": 42, "external_user_id": "user_12345", ... }],
+  "items": [{ "id": 42, "external_user_id": "user_12345", "plan_name": "partner_free", ... }],
   "total": 150,
   "page": 1,
   "per_page": 20
@@ -611,7 +685,7 @@ DELETE /webhooks/{webhook_id}
 GET /org
 ```
 
-Returns your organization details and current usage:
+Returns your organization details, current usage, and per-tier user breakdown:
 
 ```json
 {
@@ -621,7 +695,12 @@ Returns your organization details and current usage:
   "uploads_used": 142,
   "uploads_limit": 10000,
   "users_count": 85,
-  "rate_limit_per_min": 600
+  "rate_limit_per_min": 600,
+  "tier_breakdown": {
+    "partner_free": 60,
+    "partner_pro": 20,
+    "partner_business": 5
+  }
 }
 ```
 
@@ -710,12 +789,12 @@ HEADERS = {
 }
 
 
-def create_user(external_id: str, email: str = None) -> dict:
+def create_user(external_id: str, email: str = None, plan: str = "partner_free") -> dict:
     """Create a SendAPI user for your end-user."""
     resp = requests.post(
         f"{BASE_URL}/users",
         headers=HEADERS,
-        json={"external_user_id": external_id, "email": email},
+        json={"external_user_id": external_id, "email": email, "plan": plan},
     )
     resp.raise_for_status()
     return resp.json()

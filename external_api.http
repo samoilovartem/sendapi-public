@@ -10,7 +10,7 @@
 ### 1. USERS
 ### ==========================================================================
 
-### Create a user
+### Create a user (defaults to partner_free plan)
 POST {{ base_url }}/users
 Authorization: Bearer {{ api_key }}
 Content-Type: application/json
@@ -21,6 +21,17 @@ Content-Type: application/json
   "language": "en"
 }
 
+### Create a user with a specific partner plan
+POST {{ base_url }}/users
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "external_user_id": "user_67890",
+  "email": "pro-user@example.com",
+  "plan": "partner_pro"
+}
+
 ### List users (paginated)
 GET {{ base_url }}/users?page=1&per_page=20
 Authorization: Bearer {{ api_key }}
@@ -28,6 +39,15 @@ Authorization: Bearer {{ api_key }}
 ### Get a single user
 GET {{ base_url }}/users/48
 Authorization: Bearer {{ api_key }}
+
+### Update a user's partner plan (no usage reset)
+PATCH {{ base_url }}/users/48
+Authorization: Bearer {{ api_key }}
+Content-Type: application/json
+
+{
+  "plan": "partner_pro"
+}
 
 ### Delete a user from the organization
 DELETE {{ base_url }}/users/48
@@ -238,7 +258,16 @@ Authorization: Bearer {{ api_key }}
 
 
 ### ==========================================================================
-### 5. ORGANIZATION
+### 5. PARTNER PLANS
+### ==========================================================================
+
+### List available partner plans
+GET {{ base_url }}/plans
+Authorization: Bearer {{ api_key }}
+
+
+### ==========================================================================
+### 6. ORGANIZATION
 ### ==========================================================================
 
 ### Get organization info (quota, usage, rate limits)
