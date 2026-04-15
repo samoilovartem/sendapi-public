@@ -16,7 +16,7 @@ Authorization: Bearer {{ api_key }}
 Content-Type: application/json
 
 {
-  "external_user_id": "user_12345",
+  "external_user_id": "user_1234567",
   "email": "user@example.com",
   "language": "en"
 }
@@ -50,7 +50,7 @@ Content-Type: application/json
 }
 
 ### Delete a user from the organization
-DELETE {{ base_url }}/users/48
+DELETE {{ base_url }}/users/472
 Authorization: Bearer {{ api_key }}
 
 ### Generate a claim token (account linking URL)
