@@ -35,7 +35,7 @@ curl -X POST https://api.sendapi.labslumen.com/api/v1/users \
     "external_user_id": "user_12345",
     "email": "user@example.com",
     "language": "en",
-    "plan": "partner_free"
+    "plan": "free"
   }'
 ```
 
@@ -48,7 +48,7 @@ curl -X POST https://api.sendapi.labslumen.com/api/v1/users \
   "email": "user@example.com",
   "language": "en",
   "is_claimed": false,
-  "plan_name": "partner_free",
+  "plan_name": "free",
   "created_at": "2026-04-05T10:00:00Z"
 }
 ```
@@ -172,9 +172,9 @@ When you exceed the limit, you'll receive a `403 Forbidden` response with a mess
 
 ---
 
-## Partner Plans
+## Plans
 
-Each user in your organization is assigned a partner plan that controls their usage limits. Plans are managed by SendAPI — your app picks which plan to assign each user.
+Each user in your organization is assigned a subscription plan that controls their usage limits. You choose which plan to assign each user.
 
 ### List Available Plans
 
@@ -182,50 +182,56 @@ Each user in your organization is assigned a partner plan that controls their us
 GET /plans
 ```
 
-Returns all active partner plans with their limits:
+Returns all active plans with their limits:
 
 ```json
 [
   {
-    "name": "partner_free",
-    "display_name": "Partner Free",
-    "uploads_limit": 20,
+    "name": "free",
+    "display_name": "Free",
+    "uploads_limit": 10,
     "accounts_limit": 3,
     "file_size_limit": 68157440,
     "history_days": 30,
     "priority": false,
-    "features": { "ai_generations_limit": 0, "twitter_posts_limit": -1 }
+    "features": null
   },
   {
-    "name": "partner_pro",
-    "display_name": "Partner Pro",
+    "name": "pro",
+    "display_name": "Pro",
     "uploads_limit": 50,
-    "accounts_limit": 5,
+    "accounts_limit": 10,
     "file_size_limit": 524288000,
     "history_days": 365,
     "priority": false,
-    "features": { "ai_generations_limit": 250, "twitter_posts_limit": 15 }
+    "features": { "ai_generations_limit": 500, "twitter_posts_limit": 30 }
   },
   {
-    "name": "partner_business",
-    "display_name": "Partner Business",
+    "name": "business",
+    "display_name": "Business",
     "uploads_limit": 500,
     "accounts_limit": 0,
     "file_size_limit": 2147483648,
     "history_days": 0,
     "priority": true,
-    "features": { "ai_generations_limit": 1000, "twitter_posts_limit": 50 }
+    "features": { "ai_generations_limit": 2000, "twitter_posts_limit": 100 }
   }
 ]
 ```
 
 Use the `name` field when creating or updating users. A value of `0` means unlimited.
 
+### Subscription Period
+
+Each user's plan has a `period_end` date. You provide this when creating or updating a user. If omitted, it defaults to 30 days from now.
+
+**Important:** When `period_end` passes without renewal, the user is downgraded to the Free plan. To prevent this, update the user with a new `period_end` before expiry. You will receive `subscription.expiring` webhooks when a subscription is within 3 days of expiry (checked daily).
+
 ---
 
 ## Users
 
-Users represent your end-users within SendAPI. Each user has their own connected accounts, posts, and partner plan, isolated from other users.
+Users represent your end-users within SendAPI. Each user has their own connected accounts, posts, and subscription plan, isolated from other users.
 
 ### Create User
 
@@ -233,35 +239,40 @@ Users represent your end-users within SendAPI. Each user has their own connected
 POST /users
 ```
 
-| Field              | Type   | Required | Description                                                 |
-| ------------------ | ------ | -------- | ----------------------------------------------------------- |
-| `external_user_id` | string | Yes      | Your internal user ID (1-255 chars, unique per org)         |
-| `email`            | string | No       | User's email address                                        |
-| `language`         | string | No       | Language code (e.g., `"en"`, `"ru"`)                        |
-| `plan`             | string | No       | Partner plan name (defaults to `"partner_free"` if not set) |
+| Field              | Type     | Required | Description                                            |
+| ------------------ | -------- | -------- | ------------------------------------------------------ |
+| `external_user_id` | string   | Yes      | Your internal user ID (1-255 chars, unique per org)    |
+| `email`            | string   | No       | User's email address                                   |
+| `language`         | string   | No       | Language code (e.g., `"en"`, `"ru"`)                   |
+| `plan`             | string   | No       | Plan name (defaults to `"free"` if not set)            |
+| `period_end`       | datetime | No       | Subscription end date (ISO 8601, defaults to +30 days) |
 
 **Errors:**
 
-- `400 Bad Request` — invalid partner plan name
+- `400 Bad Request` — invalid plan name
 - `409 Conflict` — `external_user_id` already exists in your organization
 
-### Update User Plan
+### Update User
 
-Change a user's partner plan tier. Usage counters are **not** reset on tier change — the new plan's limits apply to the already-consumed usage for the current billing period.
+Change a user's plan, timezone, or subscription period. Usage counters are **not** reset on plan change — the new plan's limits apply to the already-consumed usage for the current billing period.
 
 ```
 PATCH /users/{user_id}
 ```
 
-| Field  | Type   | Required | Description           |
-| ------ | ------ | -------- | --------------------- |
-| `plan` | string | Yes      | New partner plan name |
+| Field        | Type     | Required | Description                          |
+| ------------ | -------- | -------- | ------------------------------------ |
+| `plan`       | string   | No       | New plan name                        |
+| `timezone`   | string   | No       | IANA timezone (e.g. Europe/Moscow)   |
+| `period_end` | datetime | No       | New subscription end date (ISO 8601) |
+
+At least one field must be provided.
 
 **Response:** returns the updated user object.
 
 **Errors:**
 
-- `400 Bad Request` — invalid partner plan name
+- `400 Bad Request` — invalid plan name
 - `404 Not Found` — user does not exist in your organization
 
 ### List Users
@@ -274,7 +285,7 @@ Returns a paginated list:
 
 ```json
 {
-  "items": [{ "id": 42, "external_user_id": "user_12345", "plan_name": "partner_free", ... }],
+  "items": [{ "id": 42, "external_user_id": "user_12345", "plan_name": "free", ... }],
   "total": 150,
   "page": 1,
   "per_page": 20
@@ -578,6 +589,7 @@ POST /webhooks
 - `post.failed` — post failed on one or more platforms
 - `post.processing` — post picked up by worker
 - `account.disconnected` — a platform account token expired
+- `subscription.expiring` — a user's subscription is within 3 days of expiry (checked daily; renew via PATCH /users/{user_id})
 
 **Response (201):**
 
@@ -697,9 +709,9 @@ Returns your organization details, current usage, and per-tier user breakdown:
   "users_count": 85,
   "rate_limit_per_min": 600,
   "tier_breakdown": {
-    "partner_free": 60,
-    "partner_pro": 20,
-    "partner_business": 5
+    "free": 60,
+    "pro": 20,
+    "business": 5
   }
 }
 ```
@@ -789,7 +801,7 @@ HEADERS = {
 }
 
 
-def create_user(external_id: str, email: str = None, plan: str = "partner_free") -> dict:
+def create_user(external_id: str, email: str = None, plan: str = "free") -> dict:
     """Create a SendAPI user for your end-user."""
     resp = requests.post(
         f"{BASE_URL}/users",

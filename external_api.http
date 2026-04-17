@@ -10,7 +10,7 @@
 ### 1. USERS
 ### ==========================================================================
 
-### Create a user (defaults to partner_free plan)
+### Create a user (defaults to free plan)
 POST {{ base_url }}/users
 Authorization: Bearer {{ api_key }}
 Content-Type: application/json
@@ -21,7 +21,7 @@ Content-Type: application/json
   "language": "en"
 }
 
-### Create a user with a specific partner plan
+### Create a user with a specific plan and subscription period
 POST {{ base_url }}/users
 Authorization: Bearer {{ api_key }}
 Content-Type: application/json
@@ -29,7 +29,8 @@ Content-Type: application/json
 {
   "external_user_id": "user_67890",
   "email": "pro-user@example.com",
-  "plan": "partner_pro"
+  "plan": "pro",
+  "period_end": "2026-06-01T00:00:00Z"
 }
 
 ### List users (paginated)
@@ -40,13 +41,14 @@ Authorization: Bearer {{ api_key }}
 GET {{ base_url }}/users/48
 Authorization: Bearer {{ api_key }}
 
-### Update a user's partner plan (no usage reset)
+### Update a user's plan (no usage reset)
 PATCH {{ base_url }}/users/48
 Authorization: Bearer {{ api_key }}
 Content-Type: application/json
 
 {
-  "plan": "partner_pro"
+  "plan": "pro",
+  "period_end": "2026-07-01T00:00:00Z"
 }
 
 ### Delete a user from the organization
@@ -258,10 +260,10 @@ Authorization: Bearer {{ api_key }}
 
 
 ### ==========================================================================
-### 5. PARTNER PLANS
+### 5. PLANS
 ### ==========================================================================
 
-### List available partner plans
+### List available plans
 GET {{ base_url }}/plans
 Authorization: Bearer {{ api_key }}
 
