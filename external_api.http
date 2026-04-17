@@ -47,7 +47,7 @@ Authorization: Bearer {{ api_key }}
 Content-Type: application/json
 
 {
-  "plan": "pro",
+  "plan": "business",
   "period_end": "2026-07-01T00:00:00Z"
 }
 
