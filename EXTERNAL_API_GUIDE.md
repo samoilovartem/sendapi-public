@@ -428,9 +428,132 @@ Returns `204 No Content`.
 
 ## Posts
 
-### Upload Media File
+### Upload Media (Resumable Chunked Protocol — Recommended)
 
-Upload a file directly to the server. The returned `file_path` can be used as `media_source` when creating a post.
+Large files (> 100 MB) MUST use the chunked protocol. It survives network drops, works behind CDNs with per-request body limits, and returns the same `file_path` you pass as `media_source` when creating a post.
+
+The protocol is four endpoints: **init → PUT chunks → complete**, with an optional **status** poll to support resume after a disconnect.
+
+#### 1. Initialize a session
+
+```
+POST /upload/chunked
+```
+
+Body: `{ "filename": "<name>", "file_size": <bytes> }`
+
+```bash
+curl -X POST https://api.sendapi.labslumen.com/api/v1/upload/chunked \
+  -H "Authorization: Bearer sk_live_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{"filename": "video.mp4", "file_size": 536870912}'
+```
+
+**Response (201):**
+
+```json
+{
+  "upload_id": "8f3b1c2e-…",
+  "chunk_size": 65536,
+  "max_file_size": 1073741824
+}
+```
+
+#### 2. Upload each chunk
+
+```
+PUT /upload/chunked/{upload_id}?offset={byte_offset}
+```
+
+Body: raw bytes (length = `chunk_size`; the last chunk may be shorter). `Content-Type: application/octet-stream`. Safe to retry at the same offset on failure — the server overwrites idempotently.
+
+```bash
+curl -X PUT "https://api.sendapi.labslumen.com/api/v1/upload/chunked/<upload_id>?offset=0" \
+  -H "Authorization: Bearer sk_live_your_key_here" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @chunk0.bin
+```
+
+**Response (200):** `{ "chunk_index": 0, "bytes_received": 65536 }`
+
+#### 3. (Optional) Check status to resume
+
+```
+GET /upload/chunked/{upload_id}/status
+```
+
+**Response (200):** `{ "upload_id", "filename", "expected_size", "received_bytes", "complete" }`
+
+If a network drop interrupted your upload, call this endpoint — `received_bytes` tells you the offset to resume from.
+
+#### 4. Complete
+
+```
+POST /upload/chunked/{upload_id}/complete
+```
+
+**Response (200):**
+
+```json
+{
+  "file_path": "/tmp/sendapi/a1b2c3d4.mp4",
+  "filename": "video.mp4",
+  "file_size": "536870912",
+  "sha256": "deadbeef…"
+}
+```
+
+Pass `file_path` as `media_source` when creating the post.
+
+#### Python example
+
+```python
+import os
+import httpx
+
+API = 'https://api.sendapi.labslumen.com/api/v1'
+KEY = 'sk_live_your_key_here'
+
+
+def upload(path: str) -> str:
+    """Upload a file with the chunked protocol; returns the server file_path."""
+    size = os.path.getsize(path)
+    headers = {'Authorization': f'Bearer {KEY}'}
+    with httpx.Client(headers=headers, timeout=300) as client:
+        init = client.post(
+            f'{API}/upload/chunked',
+            json={'filename': os.path.basename(path), 'file_size': size},
+        ).json()
+
+        chunk_size = init['chunk_size']
+        with open(path, 'rb') as f:
+            offset = 0
+            while True:
+                chunk = f.read(chunk_size)
+                if not chunk:
+                    break
+                client.put(
+                    f'{API}/upload/chunked/{init["upload_id"]}',
+                    params={'offset': offset},
+                    content=chunk,
+                    headers={'Content-Type': 'application/octet-stream'},
+                )
+                offset += len(chunk)
+
+        return client.post(
+            f'{API}/upload/chunked/{init["upload_id"]}/complete'
+        ).json()['file_path']
+
+
+server_path = upload('video.mp4')
+# Pass server_path as media_source when creating the post.
+```
+
+---
+
+### Upload Media File (Deprecated single-shot)
+
+> **Deprecated — sunset 2026-05-20.** Responses carry `Deprecation: true` and `Sunset` headers per RFC 8594. Cannot support files > 100 MB when the API is fronted by a CDN. Migrate to the chunked protocol above.
 
 ```
 POST /upload/file
@@ -444,15 +567,7 @@ curl -X POST https://api.sendapi.labslumen.com/api/v1/upload/file \
   -F "data=@video.mp4"
 ```
 
-**Response (201):**
-
-```json
-{
-  "file_path": "/tmp/sendapi/a1b2c3d4.mp4",
-  "filename": "video.mp4",
-  "file_size": "10485760"
-}
-```
+**Response (201):** same shape as chunked `complete` — `{ "file_path", "filename", "file_size", "sha256" }`.
 
 ### Create Post
 
