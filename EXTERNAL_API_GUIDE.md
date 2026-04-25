@@ -700,8 +700,9 @@ POST /webhooks
 
 **Supported events:**
 
-- `post.completed` — post successfully published to all platforms
-- `post.failed` — post failed on one or more platforms
+- `post.completed` — post successfully published to **every** selected platform
+- `post.partial` — post succeeded on at least one platform AND failed on at least one (mixed result)
+- `post.failed` — post failed on every selected platform
 - `post.processing` — post picked up by worker
 - `account.disconnected` — a platform account token expired
 - `subscription.expiring` — a user's subscription is within 3 days of expiry (checked daily; renew via PATCH /users/{user_id})
